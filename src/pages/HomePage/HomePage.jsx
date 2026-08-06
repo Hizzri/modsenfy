@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AudioPlayer from '../../components/AudioPlayer/AudioPlayer';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import Loader from '../../components/Loader/Loader';
 import Pagination from '../../components/Pagination/Pagination';
@@ -215,14 +216,12 @@ function HomePage() {
 
       <section className="player-panel">
         <div className="player-panel__top">
-          <p className="player-panel__title">Select a track to listen to</p>
+          <p className="player-panel__title">Music player</p>
 
           <Sort value={sortMethod} onChange={handleSortChange} />
         </div>
 
-        <div className="player-placeholder">
-          The audio player will appear after selecting a track
-        </div>
+        <AudioPlayer />
       </section>
 
       <section className="page-section">
