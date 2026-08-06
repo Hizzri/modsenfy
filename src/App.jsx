@@ -1,14 +1,19 @@
+import { Route, Routes } from 'react-router-dom';
+import AppLayout from './components/AppLayout/AppLayout';
+import FavoritesPage from './pages/FavoritesPage/FavoritesPage';
+import HomePage from './pages/HomePage/HomePage';
+import NotFoundPage from './pages/NotFoundPage/NotFoundPage';
+import './styles/pages.scss';
+
 function App() {
   return (
-    <main className="setup-screen">
-      <div className="setup-screen__content">
-        <p className="setup-screen__eyebrow">React music application</p>
-
-        <h1 className="setup-screen__title">Modsenfy</h1>
-
-        <p className="setup-screen__text">Project foundation is ready.</p>
-      </div>
-    </main>
+    <Routes>
+      <Route path="/" element={<AppLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="favorites" element={<FavoritesPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }
 
