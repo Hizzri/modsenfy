@@ -4,7 +4,7 @@ import playerReducer from './playerSlice';
 
 const FAVORITES_STORAGE_KEY = 'modsenfy-favorites';
 
-function loadFavoritesFromLocalStorage() {
+function loadFavorites() {
   try {
     const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
 
@@ -12,42 +12,28 @@ function loadFavoritesFromLocalStorage() {
       return [];
     }
 
-    const parsedFavorites = JSON.parse(savedFavorites);
-
-    if (!Array.isArray(parsedFavorites)) {
-      return [];
-    }
-
-    return parsedFavorites;
+    const favorites = JSON.parse(savedFavorites);
+    return Array.isArray(favorites) ? favorites : [];
   } catch {
     return [];
   }
 }
-
-const preloadedState = {
-  favorites: {
-    tracks: loadFavoritesFromLocalStorage(),
-  },
-};
 
 const store = configureStore({
   reducer: {
     player: playerReducer,
     favorites: favoritesReducer,
   },
-  preloadedState,
+  preloadedState: {
+    favorites: {
+      tracks: loadFavorites(),
+    },
+  },
 });
 
 store.subscribe(() => {
-  try {
-    const currentState = store.getState();
-    const favoriteTracks = currentState.favorites.tracks;
-    const savedFavorites = JSON.stringify(favoriteTracks);
-
-    localStorage.setItem(FAVORITES_STORAGE_KEY, savedFavorites);
-  } catch {
-    // The application can continue working even if LocalStorage is unavailable.
-  }
+  const favoriteTracks = store.getState().favorites.tracks;
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteTracks));
 });
 
 export default store;
