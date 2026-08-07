@@ -5,37 +5,109 @@ import 'react-h5-audio-player/lib/styles.css';
 import { setIsPlaying } from '../../store/playerSlice';
 import './AudioPlayer.scss';
 
+const TRACK_SWITCH_DELAY = 100;
+const PAUSE_CONFIRM_DELAY = 180;
+
 function AudioPlayer() {
   const dispatch = useDispatch();
   const audioPlayerReference = useRef(null);
+  const previousTrackIdReference = useRef(null);
+  const pauseTimerReference = useRef(null);
 
   const currentTrack = useSelector((state) => state.player.currentTrack);
   const isPlaying = useSelector((state) => state.player.isPlaying);
 
+  const currentTrackId = currentTrack?.id || null;
+
   useEffect(() => {
     const audioElement = audioPlayerReference.current?.audio?.current;
 
-    if (!audioElement) {
+    if (!audioElement || !currentTrackId) {
       return;
     }
 
-    if (isPlaying) {
-      audioElement.play().catch(() => dispatch(setIsPlaying(false)));
-    } else {
+    const previousTrackId = previousTrackIdReference.current;
+    const hasTrackChanged = previousTrackId !== null && previousTrackId !== currentTrackId;
+
+    previousTrackIdReference.current = currentTrackId;
+
+    if (!isPlaying) {
       audioElement.pause();
+      return;
     }
-  }, [currentTrack, isPlaying, dispatch]);
+
+    let playDelay = 0;
+
+    if (hasTrackChanged) {
+      playDelay = TRACK_SWITCH_DELAY;
+    }
+
+    const playTimer = window.setTimeout(() => {
+      const latestAudioElement = audioPlayerReference.current?.audio?.current;
+
+      if (!latestAudioElement) {
+        return;
+      }
+
+      const playPromise = latestAudioElement.play();
+
+      if (playPromise) {
+        playPromise.catch(() => {
+          dispatch(setIsPlaying(false));
+        });
+      }
+    }, playDelay);
+
+    return () => {
+      window.clearTimeout(playTimer);
+    };
+  }, [currentTrackId, isPlaying, dispatch]);
+
+  useEffect(() => {
+    return () => {
+      if (pauseTimerReference.current !== null) {
+        window.clearTimeout(pauseTimerReference.current);
+      }
+    };
+  }, []);
 
   function handlePlayerPlay() {
+    if (pauseTimerReference.current !== null) {
+      window.clearTimeout(pauseTimerReference.current);
+      pauseTimerReference.current = null;
+    }
+
     if (!isPlaying) {
       dispatch(setIsPlaying(true));
     }
   }
 
-  function handlePlayerStop() {
-    if (isPlaying) {
-      dispatch(setIsPlaying(false));
+  function handlePlayerPause() {
+    if (pauseTimerReference.current !== null) {
+      window.clearTimeout(pauseTimerReference.current);
     }
+
+    pauseTimerReference.current = window.setTimeout(() => {
+      const audioElement = audioPlayerReference.current?.audio?.current;
+
+      if (!audioElement) {
+        return;
+      }
+
+      if (audioElement.paused) {
+        dispatch(setIsPlaying(false));
+      }
+
+      pauseTimerReference.current = null;
+    }, PAUSE_CONFIRM_DELAY);
+  }
+
+  function handlePlayerEnded() {
+    dispatch(setIsPlaying(false));
+  }
+
+  function handlePlayerError() {
+    dispatch(setIsPlaying(false));
   }
 
   if (!currentTrack) {
@@ -85,14 +157,14 @@ function AudioPlayer() {
         className="audio-player__controls"
         src={currentTrack.streamUrl}
         preload="metadata"
-        autoPlayAfterSrcChange={true}
+        autoPlayAfterSrcChange={false}
         showJumpControls={false}
         customAdditionalControls={[]}
         onPlay={handlePlayerPlay}
-        onPause={handlePlayerStop}
-        onEnded={handlePlayerStop}
-        onError={handlePlayerStop}
-        onPlayError={handlePlayerStop}
+        onPause={handlePlayerPause}
+        onEnded={handlePlayerEnded}
+        onError={handlePlayerError}
+        onPlayError={handlePlayerError}
       />
     </div>
   );
