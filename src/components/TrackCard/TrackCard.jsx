@@ -1,4 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { toggleFavorite } from '../../store/favoritesSlice';
 import { pauseTrack, playTrack } from '../../store/playerSlice';
 
 function TrackCard({ track }) {
@@ -6,6 +7,7 @@ function TrackCard({ track }) {
 
   const currentTrack = useSelector((state) => state.player.currentTrack);
   const isPlaying = useSelector((state) => state.player.isPlaying);
+  const favoriteTracks = useSelector((state) => state.favorites.tracks);
 
   let isCurrentTrack = false;
 
@@ -21,6 +23,17 @@ function TrackCard({ track }) {
     isCurrentTrackPlaying = true;
   }
 
+  let isFavorite = false;
+
+  for (let index = 0; index < favoriteTracks.length; index += 1) {
+    const favoriteTrack = favoriteTracks[index];
+
+    if (favoriteTrack.id === track.id) {
+      isFavorite = true;
+      break;
+    }
+  }
+
   function handlePlayButtonClick() {
     if (!track.isPlayable) {
       return;
@@ -32,6 +45,10 @@ function TrackCard({ track }) {
     }
 
     dispatch(playTrack(track));
+  }
+
+  function handleFavoriteButtonClick() {
+    dispatch(toggleFavorite(track));
   }
 
   let artworkContent;
@@ -67,6 +84,16 @@ function TrackCard({ track }) {
     playButtonIcon = 'Ⅱ';
   }
 
+  let favoriteButtonClassName = 'track-card__favorite-button';
+  let favoriteButtonText = 'Add to favorites';
+  let favoriteButtonIcon = '♡';
+
+  if (isFavorite) {
+    favoriteButtonClassName = 'track-card__favorite-button track-card__favorite-button--active';
+    favoriteButtonText = 'Remove from favorites';
+    favoriteButtonIcon = '♥';
+  }
+
   let trackCardClassName = 'track-card';
 
   if (isCurrentTrack) {
@@ -78,6 +105,15 @@ function TrackCard({ track }) {
       <div className="track-card__image-wrapper">
         {artworkContent}
         {unavailableMessage}
+
+        <button
+          className={favoriteButtonClassName}
+          type="button"
+          aria-label={`${favoriteButtonText}: ${track.title}`}
+          onClick={handleFavoriteButtonClick}
+        >
+          <span aria-hidden="true">{favoriteButtonIcon}</span>
+        </button>
 
         <button
           className="track-card__play-button"
