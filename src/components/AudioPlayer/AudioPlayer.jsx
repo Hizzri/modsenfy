@@ -13,35 +13,17 @@ function AudioPlayer() {
   const isPlaying = useSelector((state) => state.player.isPlaying);
 
   useEffect(() => {
-    if (currentTrack === null) {
-      return;
-    }
+    const audioElement = audioPlayerReference.current?.audio?.current;
 
-    const audioPlayerComponent = audioPlayerReference.current;
-
-    if (audioPlayerComponent === null) {
-      return;
-    }
-
-    const audioElement = audioPlayerComponent.audio.current;
-
-    if (audioElement === null) {
+    if (!audioElement) {
       return;
     }
 
     if (isPlaying) {
-      const playPromise = audioElement.play();
-
-      if (playPromise) {
-        playPromise.catch(() => {
-          dispatch(setIsPlaying(false));
-        });
-      }
-
-      return;
+      audioElement.play().catch(() => dispatch(setIsPlaying(false)));
+    } else {
+      audioElement.pause();
     }
-
-    audioElement.pause();
   }, [currentTrack, isPlaying, dispatch]);
 
   function handlePlayerPlay() {
@@ -50,21 +32,13 @@ function AudioPlayer() {
     }
   }
 
-  function handlePlayerPause() {
+  function handlePlayerStop() {
     if (isPlaying) {
       dispatch(setIsPlaying(false));
     }
   }
 
-  function handlePlayerEnded() {
-    dispatch(setIsPlaying(false));
-  }
-
-  function handlePlayerError() {
-    dispatch(setIsPlaying(false));
-  }
-
-  if (currentTrack === null) {
+  if (!currentTrack) {
     return (
       <div className="audio-player-placeholder">
         The audio player will appear after selecting a track
@@ -72,7 +46,11 @@ function AudioPlayer() {
     );
   }
 
-  let artworkContent;
+  let artworkContent = (
+    <div className="audio-player__image-placeholder" aria-hidden="true">
+      ♫
+    </div>
+  );
 
   if (currentTrack.artworkUrl) {
     artworkContent = (
@@ -81,12 +59,6 @@ function AudioPlayer() {
         src={currentTrack.artworkUrl}
         alt={`Cover for ${currentTrack.title}`}
       />
-    );
-  } else {
-    artworkContent = (
-      <div className="audio-player__image-placeholder" aria-hidden="true">
-        ♫
-      </div>
     );
   }
 
@@ -117,10 +89,10 @@ function AudioPlayer() {
         showJumpControls={false}
         customAdditionalControls={[]}
         onPlay={handlePlayerPlay}
-        onPause={handlePlayerPause}
-        onEnded={handlePlayerEnded}
-        onError={handlePlayerError}
-        onPlayError={handlePlayerError}
+        onPause={handlePlayerStop}
+        onEnded={handlePlayerStop}
+        onError={handlePlayerStop}
+        onPlayError={handlePlayerStop}
       />
     </div>
   );

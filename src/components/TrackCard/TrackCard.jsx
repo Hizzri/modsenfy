@@ -9,30 +9,9 @@ function TrackCard({ track }) {
   const isPlaying = useSelector((state) => state.player.isPlaying);
   const favoriteTracks = useSelector((state) => state.favorites.tracks);
 
-  let isCurrentTrack = false;
-
-  if (currentTrack !== null) {
-    if (currentTrack.id === track.id) {
-      isCurrentTrack = true;
-    }
-  }
-
-  let isCurrentTrackPlaying = false;
-
-  if (isCurrentTrack && isPlaying) {
-    isCurrentTrackPlaying = true;
-  }
-
-  let isFavorite = false;
-
-  for (let index = 0; index < favoriteTracks.length; index += 1) {
-    const favoriteTrack = favoriteTracks[index];
-
-    if (favoriteTrack.id === track.id) {
-      isFavorite = true;
-      break;
-    }
-  }
+  const isCurrentTrack = currentTrack?.id === track.id;
+  const isCurrentTrackPlaying = isCurrentTrack && isPlaying;
+  const isFavorite = favoriteTracks.some((favoriteTrack) => favoriteTrack.id === track.id);
 
   function handlePlayButtonClick() {
     if (!track.isPlayable) {
@@ -41,17 +20,20 @@ function TrackCard({ track }) {
 
     if (isCurrentTrackPlaying) {
       dispatch(pauseTrack());
-      return;
+    } else {
+      dispatch(playTrack(track));
     }
-
-    dispatch(playTrack(track));
   }
 
   function handleFavoriteButtonClick() {
     dispatch(toggleFavorite(track));
   }
 
-  let artworkContent;
+  let artworkContent = (
+    <div className="track-card__image-placeholder" aria-hidden="true">
+      ♫
+    </div>
+  );
 
   if (track.artworkUrl) {
     artworkContent = (
@@ -62,67 +44,36 @@ function TrackCard({ track }) {
         loading="lazy"
       />
     );
-  } else {
-    artworkContent = (
-      <div className="track-card__image-placeholder" aria-hidden="true">
-        ♫
-      </div>
-    );
-  }
-
-  let unavailableMessage = null;
-
-  if (!track.isPlayable) {
-    unavailableMessage = <span className="track-card__status">Unavailable</span>;
-  }
-
-  let playButtonText = 'Play';
-  let playButtonIcon = '▶';
-
-  if (isCurrentTrackPlaying) {
-    playButtonText = 'Pause';
-    playButtonIcon = 'Ⅱ';
-  }
-
-  let favoriteButtonClassName = 'track-card__favorite-button';
-  let favoriteButtonText = 'Add to favorites';
-  let favoriteButtonIcon = '♡';
-
-  if (isFavorite) {
-    favoriteButtonClassName = 'track-card__favorite-button track-card__favorite-button--active';
-    favoriteButtonText = 'Remove from favorites';
-    favoriteButtonIcon = '♥';
-  }
-
-  let trackCardClassName = 'track-card';
-
-  if (isCurrentTrack) {
-    trackCardClassName = 'track-card track-card--active';
   }
 
   return (
-    <article className={trackCardClassName}>
+    <article className={isCurrentTrack ? 'track-card track-card--active' : 'track-card'}>
       <div className="track-card__image-wrapper">
         {artworkContent}
-        {unavailableMessage}
+
+        {!track.isPlayable && <span className="track-card__status">Unavailable</span>}
 
         <button
-          className={favoriteButtonClassName}
+          className={
+            isFavorite
+              ? 'track-card__favorite-button track-card__favorite-button--active'
+              : 'track-card__favorite-button'
+          }
           type="button"
-          aria-label={`${favoriteButtonText}: ${track.title}`}
+          aria-label={`${isFavorite ? 'Remove from' : 'Add to'} favorites: ${track.title}`}
           onClick={handleFavoriteButtonClick}
         >
-          <span aria-hidden="true">{favoriteButtonIcon}</span>
+          <span aria-hidden="true">{isFavorite ? '♥' : '♡'}</span>
         </button>
 
         <button
           className="track-card__play-button"
           type="button"
-          aria-label={`${playButtonText} ${track.title}`}
+          aria-label={`${isCurrentTrackPlaying ? 'Pause' : 'Play'} ${track.title}`}
           disabled={!track.isPlayable}
           onClick={handlePlayButtonClick}
         >
-          <span aria-hidden="true">{playButtonIcon}</span>
+          <span aria-hidden="true">{isCurrentTrackPlaying ? 'Ⅱ' : '▶'}</span>
         </button>
       </div>
 

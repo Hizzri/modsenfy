@@ -19,13 +19,9 @@ const playerSlice = createSlice({
     setIsPlaying(state, action) {
       state.isPlaying = action.payload;
     },
-    clearCurrentTrack(state) {
-      state.currentTrack = null;
-      state.isPlaying = false;
-    },
   },
 });
 
-export const { playTrack, pauseTrack, setIsPlaying, clearCurrentTrack } = playerSlice.actions;
+export const { playTrack, pauseTrack, setIsPlaying } = playerSlice.actions;
 
 export default playerSlice.reducer;

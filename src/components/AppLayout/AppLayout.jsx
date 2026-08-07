@@ -10,22 +10,11 @@ function AppLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   function toggleMobileMenu() {
-    if (isMobileMenuOpen) {
-      setIsMobileMenuOpen(false);
-      return;
-    }
-
-    setIsMobileMenuOpen(true);
+    setIsMobileMenuOpen(!isMobileMenuOpen);
   }
 
   function closeMobileMenu() {
     setIsMobileMenuOpen(false);
-  }
-
-  let overlayClassName = 'menu-overlay';
-
-  if (isMobileMenuOpen) {
-    overlayClassName = 'menu-overlay menu-overlay--visible';
   }
 
   return (
@@ -49,7 +38,7 @@ function AppLayout() {
       </div>
 
       <button
-        className={overlayClassName}
+        className={isMobileMenuOpen ? 'menu-overlay menu-overlay--visible' : 'menu-overlay'}
         type="button"
         aria-label="Close navigation menu"
         onClick={closeMobileMenu}

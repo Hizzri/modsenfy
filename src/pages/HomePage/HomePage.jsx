@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getRecommendedTracks, getTracks, TRACKS_PER_PAGE } from '../../api/tracksApi';
 import AudioPlayer from '../../components/AudioPlayer/AudioPlayer';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import Loader from '../../components/Loader/Loader';
@@ -6,12 +7,6 @@ import Pagination from '../../components/Pagination/Pagination';
 import Search from '../../components/Search/Search';
 import Sort from '../../components/Sort/Sort';
 import TrackList from '../../components/TrackList/TrackList';
-import {
-  getAudiusErrorMessage,
-  getTracks,
-  isCanceledRequest,
-  TRACKS_PER_PAGE,
-} from '../../api/tracksApi';
 
 const SEARCH_DEBOUNCE_TIME = 400;
 
@@ -23,53 +18,42 @@ function HomePage() {
 
   const [tracks, setTracks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
-
+  const [hasError, setHasError] = useState(false);
   const [lastPage, setLastPage] = useState(null);
   const [reloadNumber, setReloadNumber] = useState(0);
 
+  const [recommendedTracks, setRecommendedTracks] = useState([]);
+  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
+  const [recommendationsHaveError, setRecommendationsHaveError] = useState(false);
+
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      const preparedSearchQuery = searchInputValue.trim();
-
-      setSearchQuery(preparedSearchQuery);
+      setSearchQuery(searchInputValue.trim());
       setCurrentPage(1);
       setLastPage(null);
     }, SEARCH_DEBOUNCE_TIME);
 
-    return () => {
-      clearTimeout(debounceTimer);
-    };
+    return () => clearTimeout(debounceTimer);
   }, [searchInputValue]);
 
   useEffect(() => {
     const abortController = new AbortController();
 
-    let isRequestActive = true;
-
     async function loadTracks() {
       setIsLoading(true);
-      setErrorMessage('');
+      setHasError(false);
 
       try {
         const loadedTracks = await getTracks({
           searchQuery,
           sortMethod,
           page: currentPage,
-          limit: TRACKS_PER_PAGE,
           signal: abortController.signal,
         });
 
-        if (!isRequestActive) {
-          return;
-        }
-
         if (loadedTracks.length === 0 && currentPage > 1) {
-          const previousPage = currentPage - 1;
-
-          setLastPage(previousPage);
-          setCurrentPage(previousPage);
-
+          setLastPage(currentPage - 1);
+          setCurrentPage(currentPage - 1);
           return;
         }
 
@@ -78,21 +62,13 @@ function HomePage() {
         if (loadedTracks.length < TRACKS_PER_PAGE) {
           setLastPage(currentPage);
         }
-      } catch (error) {
-        if (!isRequestActive) {
-          return;
+      } catch {
+        if (!abortController.signal.aborted) {
+          setTracks([]);
+          setHasError(true);
         }
-
-        if (isCanceledRequest(error)) {
-          return;
-        }
-
-        const readableErrorMessage = getAudiusErrorMessage(error);
-
-        setTracks([]);
-        setErrorMessage(readableErrorMessage);
       } finally {
-        if (isRequestActive) {
+        if (!abortController.signal.aborted) {
           setIsLoading(false);
         }
       }
@@ -100,15 +76,34 @@ function HomePage() {
 
     loadTracks();
 
-    return () => {
-      isRequestActive = false;
-      abortController.abort();
-    };
+    return () => abortController.abort();
   }, [searchQuery, sortMethod, currentPage, reloadNumber]);
 
-  function handleSearchChange(newSearchValue) {
-    setSearchInputValue(newSearchValue);
-  }
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function loadRecommendations() {
+      setIsRecommendationsLoading(true);
+      setRecommendationsHaveError(false);
+
+      try {
+        const loadedTracks = await getRecommendedTracks(abortController.signal);
+        setRecommendedTracks(loadedTracks);
+      } catch {
+        if (!abortController.signal.aborted) {
+          setRecommendationsHaveError(true);
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsRecommendationsLoading(false);
+        }
+      }
+    }
+
+    loadRecommendations();
+
+    return () => abortController.abort();
+  }, []);
 
   function handleSortChange(newSortMethod) {
     setSortMethod(newSortMethod);
@@ -116,28 +111,8 @@ function HomePage() {
     setLastPage(null);
   }
 
-  function handlePreviousPage() {
-    const previousPage = currentPage - 1;
-
-    if (previousPage >= 1) {
-      setCurrentPage(previousPage);
-    }
-  }
-
-  function handleNextPage() {
-    const nextPage = currentPage + 1;
-
-    setCurrentPage(nextPage);
-  }
-
-  function handleRetry() {
-    const nextReloadNumber = reloadNumber + 1;
-
-    setReloadNumber(nextReloadNumber);
-  }
-
   function getSectionTitle() {
-    if (searchQuery !== '') {
+    if (searchQuery) {
       return `Search results for "${searchQuery}"`;
     }
 
@@ -148,52 +123,37 @@ function HomePage() {
     return 'Popular tracks';
   }
 
-  let isPreviousButtonDisabled = false;
-
-  if (isLoading || currentPage === 1) {
-    isPreviousButtonDisabled = true;
-  }
-
-  let isNextButtonDisabled = false;
-
-  if (isLoading) {
-    isNextButtonDisabled = true;
-  }
-
-  if (tracks.length < TRACKS_PER_PAGE) {
-    isNextButtonDisabled = true;
-  }
-
-  if (lastPage !== null && currentPage >= lastPage) {
-    isNextButtonDisabled = true;
-  }
+  const isPreviousDisabled = isLoading || currentPage === 1;
+  const isNextDisabled =
+    isLoading || tracks.length < TRACKS_PER_PAGE || (lastPage !== null && currentPage >= lastPage);
 
   let catalogContent;
 
   if (isLoading) {
     catalogContent = <Loader />;
-  } else if (errorMessage) {
+  } else if (hasError) {
     catalogContent = (
       <div className="error-state">
         <h3 className="error-state__title">Could not load tracks</h3>
-
-        <p className="error-state__text">{errorMessage}</p>
-
-        <button className="error-state__button" type="button" onClick={handleRetry}>
+        <p className="error-state__text">Check your internet connection and try again.</p>
+        <button
+          className="error-state__button"
+          type="button"
+          onClick={() => setReloadNumber(reloadNumber + 1)}
+        >
           Try again
         </button>
       </div>
     );
   } else if (tracks.length === 0) {
-    let emptyTitle = 'No tracks found';
-    let emptyText = 'Audius did not return any tracks.';
-
-    if (searchQuery !== '') {
-      emptyTitle = 'Not Found';
-      emptyText = `No tracks matched "${searchQuery}".`;
-    }
-
-    catalogContent = <EmptyState title={emptyTitle} text={emptyText} />;
+    catalogContent = (
+      <EmptyState
+        title={searchQuery ? 'Not Found' : 'No tracks found'}
+        text={
+          searchQuery ? `No tracks matched "${searchQuery}".` : 'Audius did not return any tracks.'
+        }
+      />
+    );
   } else {
     catalogContent = (
       <>
@@ -201,23 +161,40 @@ function HomePage() {
 
         <Pagination
           currentPage={currentPage}
-          isPreviousDisabled={isPreviousButtonDisabled}
-          isNextDisabled={isNextButtonDisabled}
-          onPreviousPage={handlePreviousPage}
-          onNextPage={handleNextPage}
+          isPreviousDisabled={isPreviousDisabled}
+          isNextDisabled={isNextDisabled}
+          onPreviousPage={() => setCurrentPage(currentPage - 1)}
+          onNextPage={() => setCurrentPage(currentPage + 1)}
         />
       </>
     );
   }
 
+  let recommendationsContent;
+
+  if (isRecommendationsLoading) {
+    recommendationsContent = <Loader />;
+  } else if (recommendationsHaveError) {
+    recommendationsContent = (
+      <div className="recommendations-message">
+        Recommended tracks could not be loaded right now.
+      </div>
+    );
+  } else if (recommendedTracks.length === 0) {
+    recommendationsContent = (
+      <EmptyState title="No recommendations" text="Audius did not return recommended tracks." />
+    );
+  } else {
+    recommendationsContent = <TrackList tracks={recommendedTracks} />;
+  }
+
   return (
     <div className="home-page">
-      <Search value={searchInputValue} onChange={handleSearchChange} />
+      <Search value={searchInputValue} onChange={setSearchInputValue} />
 
       <section className="player-panel">
         <div className="player-panel__top">
           <p className="player-panel__title">Music player</p>
-
           <Sort value={sortMethod} onChange={handleSortChange} />
         </div>
 
@@ -226,16 +203,12 @@ function HomePage() {
 
       <section className="page-section">
         <h2 className="page-section__title">{getSectionTitle()}</h2>
-
         {catalogContent}
       </section>
 
       <section className="page-section">
         <h2 className="page-section__title">Recommended</h2>
-
-        <div className="recommended-placeholder">
-          Recommended tracks will be connected to Audius in a separate stage.
-        </div>
+        {recommendationsContent}
       </section>
     </div>
   );
